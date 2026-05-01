@@ -1,65 +1,151 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useEffect, useCallback } from "react";
+import { FishingConditions } from "@/types/fishing";
+import WeatherHero from "@/components/WeatherHero";
+import FishingScoreCard from "@/components/FishingScoreCard";
+import WindCard from "@/components/WindCard";
+import TideCard from "@/components/TideCard";
+import MoonCard from "@/components/MoonCard";
+import SunCard from "@/components/SunCard";
+import MarineCard from "@/components/MarineCard";
+import SolunarCard from "@/components/SolunarCard";
+import LiveCamCard from "@/components/LiveCamCard";
+
+const AUTO_REFRESH_MS = 45 * 60 * 1000;
+
+function formatLastUpdated(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "numeric", minute: "2-digit", hour12: true,
+  });
+}
+
+function formatDate(): string {
+  return new Date().toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric",
+  });
+}
+
+export default function Dashboard() {
+  const [conditions, setConditions] = useState<FishingConditions | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async (manual = false) => {
+    if (manual) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/fishing-conditions", { cache: "no-store" });
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      setConditions(await res.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(() => load(), AUTO_REFRESH_MS);
+    return () => clearInterval(t);
+  }, [load]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-slate-900 text-slate-100">
+      {/* Header */}
+      <header className="bg-slate-800/80 backdrop-blur border-b border-slate-700/60 sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-base font-bold text-white flex items-center gap-2">
+              ⚓ Pirate&apos;s Fishing Indicator
+            </h1>
+            <p className="text-xs text-slate-500">Jamaica Beach / Pirates Beach · Galveston, TX</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {conditions && (
+              <span className="text-xs text-slate-500 hidden sm:inline">
+                {formatDate()} · Updated {formatLastUpdated(conditions.currentTime)}
+              </span>
+            )}
+            <button
+              onClick={() => load(true)}
+              disabled={refreshing || loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-xs font-medium transition-colors"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              <span className={refreshing ? "animate-spin inline-block" : ""}>↻</span>
+              {refreshing ? "Refreshing…" : "Refresh"}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4 py-5 space-y-4">
+
+        {/* Loading skeleton */}
+        {loading && (
+          <div className="space-y-4 animate-pulse">
+            <div className="h-24 rounded-2xl bg-slate-800" />
+            <div className="h-44 rounded-2xl bg-slate-800" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-48 rounded-2xl bg-slate-800" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {error && !loading && (
+          <div className="rounded-2xl border border-red-700/60 bg-red-900/20 p-5 text-center">
+            <p className="text-red-400 font-semibold mb-1">Failed to load conditions</p>
+            <p className="text-slate-400 text-sm mb-3">{error}</p>
+            <button
+              onClick={() => load(true)}
+              className="px-4 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white text-sm font-medium"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {conditions && !loading && (
+          <>
+            {/* 1. Current weather strip */}
+            <WeatherHero weather={conditions.weather} sun={conditions.sun} />
+
+            {/* 2. Fishing rating */}
+            <FishingScoreCard score={conditions.score} />
+
+            {/* 3. Solunar feeding windows */}
+            <SolunarCard solunar={conditions.solunar} currentTime={conditions.currentTime} />
+
+            {/* 4. Condition widgets — 4 col grid */}
+            {/* Row 1: Wind | Moon | Tide (spans 2) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <WindCard weather={conditions.weather} />
+              <MoonCard moon={conditions.moon} />
+              <TideCard tide={conditions.tide} />
+            </div>
+
+            {/* Row 2: Sun arc (spans 2) | Marine (spans 2) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <SunCard sun={conditions.sun} />
+              <MarineCard marine={conditions.marine} />
+            </div>
+
+            {/* 5. Live cam */}
+            <LiveCamCard />
+          </>
+        )}
       </main>
+
+      <footer className="max-w-5xl mx-auto px-4 py-5 text-center text-xs text-slate-700">
+        Open-Meteo · NOAA Station {conditions?.location.tideStationId ?? "8771510"} · Not for navigation use
+      </footer>
     </div>
   );
 }
