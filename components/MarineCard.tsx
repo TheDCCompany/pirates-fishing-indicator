@@ -43,7 +43,7 @@ export default function MarineCard({ marine }: Props) {
   const cfg = SURF[key];
 
   return (
-    <div className="rounded-2xl border border-slate-700/60 bg-slate-800/60 p-4 flex flex-col gap-3">
+    <div className="col-span-2 rounded-2xl border border-slate-700/60 bg-slate-800/60 p-4 flex flex-col gap-3">
       <p className="text-xs uppercase tracking-widest text-slate-400">Surf</p>
 
       {/* Surf label badge */}
